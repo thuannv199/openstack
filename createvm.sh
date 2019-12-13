@@ -8,10 +8,8 @@ export OS_IMAGE_API_VERSION=2
 #Input user
 echo "Enter your project name: "
 read user_project
-export OS_PROJECT_NAME=$user_project
 echo "Enter your user name (computer user): "
 read user_name
-export OS_USERNAME=$user_name
 prompt="password:"
 while IFS= read -p "$prompt" -r -s -n 1 char
 do
@@ -22,8 +20,15 @@ do
     prompt='*'
     password+="$char"
 done
-export OS_PASSWORD=$char
-
+#Verify
+read -p "Are you sure? " -n 1 -r
+echo    # (optional) move to a new line
+if [[ $REPLY =~ ^[Yy]$ ]]
+then
+    export OS_PROJECT_NAME=$user_project
+    export OS_USERNAME=$user_name
+    export OS_PASSWORD=$char
+fi
 # KEY="SSH Key Name"
 BOOTIMG="9b2cb0e3-0394-4780-8caf-90096af8e523"  #image uuid
 ZONE="nova"
