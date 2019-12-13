@@ -1,4 +1,11 @@
 #!/bin/bash
+#Input user
+echo "Enter your project name: "
+read user_project
+echo "Enter your user name (computer user): "
+read user_name
+echo "Enter your password: "
+read user_password
 # KEY="SSH Key Name"
 BOOTIMG="9b2cb0e3-0394-4780-8caf-90096af8e523"  #image uuid
 ZONE="nova"
