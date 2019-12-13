@@ -6,10 +6,10 @@ export OS_AUTH_URL=http://controller:5000/v3
 export OS_IDENTITY_API_VERSION=3
 export OS_IMAGE_API_VERSION=2
 #Input user
-echo "Enter your project name: "
-read user_project
-echo "Enter your user name (computer user): "
-read user_name
+read -p "Enter your project name: " -n 1 -r user_project
+echo #New line
+read -p "Enter your user name (computer user): " -n 1 -r user_name
+echo #New line
 prompt="password:"
 while IFS= read -p "$prompt" -r -s -n 1 char
 do
@@ -20,9 +20,10 @@ do
     prompt='*'
     password+="$char"
 done
+echo #New line
 #Verify
 read -p "Are you sure? " -n 1 -r
-echo    # (optional) move to a new line
+echo    #new line
 if [[ $REPLY =~ ^[Yy]$ ]]
 then
     export OS_PROJECT_NAME=$user_project
