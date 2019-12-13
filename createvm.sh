@@ -1,11 +1,29 @@
 #!/bin/bash
+###Script environment
+export OS_PROJECT_DOMAIN_NAME=Default
+export OS_USER_DOMAIN_NAME=Default
+export OS_AUTH_URL=http://controller:5000/v3
+export OS_IDENTITY_API_VERSION=3
+export OS_IMAGE_API_VERSION=2
 #Input user
 echo "Enter your project name: "
 read user_project
+export OS_PROJECT_NAME=$user_project
 echo "Enter your user name (computer user): "
 read user_name
-echo "Enter your password: "
-read user_password
+export OS_USERNAME=$user_name
+prompt="password:"
+while IFS= read -p "$prompt" -r -s -n 1 char
+do
+    if [[ $char == $'\0' ]]
+    then
+         break
+    fi
+    prompt='*'
+    password+="$char"
+done
+export OS_PASSWORD=$char
+
 # KEY="SSH Key Name"
 BOOTIMG="9b2cb0e3-0394-4780-8caf-90096af8e523"  #image uuid
 ZONE="nova"
