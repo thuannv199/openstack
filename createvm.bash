@@ -1,10 +1,4 @@
 #!/bin/bash
-###Script environment
-export OS_PROJECT_DOMAIN_NAME=Default
-export OS_USER_DOMAIN_NAME=Default
-export OS_AUTH_URL=http://controller:5000/v3
-export OS_IDENTITY_API_VERSION=3
-export OS_IMAGE_API_VERSION=2
 #Input user
 read -p "Enter your project name: " -n 1 -r user_project
 echo #New line
@@ -26,6 +20,12 @@ read -p "Are you sure? " -r
 echo    #new line
 if [[ $REPLY =~ ^[Yy]$ ]]
 then
+    ###Script environment
+    export OS_PROJECT_DOMAIN_NAME=Default
+    export OS_USER_DOMAIN_NAME=Default
+    export OS_AUTH_URL=http://controller:5000/v3
+    export OS_IDENTITY_API_VERSION=3
+    export OS_IMAGE_API_VERSION=2
     export OS_PROJECT_NAME=$user_project
     export OS_USERNAME=$user_name
     export OS_PASSWORD=$char
