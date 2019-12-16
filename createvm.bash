@@ -1,8 +1,8 @@
 #!/bin/bash
 #Input user
-read -p "Enter your project name: " -n 1 -r user_project
+read -p "Enter your project name: " -r user_project
 echo #New line
-read -p "Enter your user name (computer user): " -n 1 -r user_name
+read -p "Enter your user name (computer user): " -r user_name
 echo #New line
 prompt="password:"
 while IFS= read -p "$prompt" -r -s -n 1 char
