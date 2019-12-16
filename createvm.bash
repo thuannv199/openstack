@@ -27,6 +27,9 @@ then
     #Create instance
     # source ~/computerc #initiate user environment
     echo "Creating VM ..."
+    openstack project create --domain default service $OS_PROJECT_NAME
+    openstack user create --domain default $OS_USERNAME
+    openstack user set --password $OS_PASSWORD $OS_USERNAME
     VMUUID=$(openstack server create \
         --image "${BOOTIMG}" \
          --flavor "${FLAVOR}" \
