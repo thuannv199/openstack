@@ -1,4 +1,14 @@
 #!/bin/bash
+ ###Script environment
+    OS_PROJECT_DOMAIN_NAME=Default
+    OS_USER_DOMAIN_NAME=Default
+    OS_AUTH_URL=http://controller:5000/v3
+    OS_IDENTITY_API_VERSION=3
+    OS_IMAGE_API_VERSION=2
+   # OS_PROJECT_NAME=$user_project
+   # OS_USERNAME=$user_name
+   # OS_PASSWORD=$char
+    # KEY="SSH Key Name"
 #Input user
 OS_PROJECT_NAME=$(read -p "Enter your project name: ")
 echo #New line
@@ -11,16 +21,6 @@ response=$(read -p "Are you sure? ")
 echo    #new line
 if [[ $response =~ "y" ]];
 then
-    ###Script environment
-    OS_PROJECT_DOMAIN_NAME=Default
-    OS_USER_DOMAIN_NAME=Default
-    OS_AUTH_URL=http://controller:5000/v3
-    OS_IDENTITY_API_VERSION=3
-    OS_IMAGE_API_VERSION=2
-   # OS_PROJECT_NAME=$user_project
-   # OS_USERNAME=$user_name
-   # OS_PASSWORD=$char
-    # KEY="SSH Key Name"
     BOOTIMG="9b2cb0e3-0394-4780-8caf-90096af8e523"  #image uuid
     ZONE="nova"
     FLAVOR="m1.small"
