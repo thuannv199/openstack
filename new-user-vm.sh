@@ -46,7 +46,7 @@ project_id=$(get_id openstack project show ${project_name})
 	project_id=$(get_id openstack project create --domain default ${project_name})
   fi
 
-  user_id=$(get_id openstack user create --domain default --password $USER_PASSWORD --email ${user_name}${USER_DOMAIN} --project $project_id $user_name)
+  user_id=$(get_id openstack user create --project $project_id --project-domain default --password $USER_PASSWORD --email ${user_name}${USER_DOMAIN} $user_name)
   member_id=$(get_id openstack role show _member_)
   echo openstack role add --project $project_id --user $user_id $member_id
 
