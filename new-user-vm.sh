@@ -1,52 +1,53 @@
 #!/usr/bin/bash
-# creates a new OpenStack tenant/user
+# creates a new OpenStack project/user
 # optionally creates a generic network, subnet, router and
 # sets the default GW so users can immediately start using things.
 # also sets up security group rules for SSH/ICMP
 # usage :: run from openstack controller
 # usage :: source overcloudrc or keystonerc
-# usage :: ./openstack-create-user.sh
+# usage :: ./new-user-vm.sh
 
 # this should be your Neutron external network
-EXTERNAL_NET_ID="76c6ce26-d322-4e46-a440-bf4cc415c059"
+EXTERNAL_NET_ID="6f13cfe8-9929-47ef-b140-9955edb18fd2"
 # ip address of your controller
-CONTROLLER_PUB_IP="1.1.1.1"
+CONTROLLER_PUB_IP="10.0.0.11"
 # generic password for new users
-USER_PASSWORD="XXXXXXXXX"
-USER_DOMAIN="@example.com"
+USER_PASSWORD="user@stack"
+USER_DOMAIN="Default"
 # users generic internal network
-user_net_cidr='192.168.1.0'
+user_net_cidr='11.0.0.0'
 # where tokens are stored
 token_location="/root/keystonerc.d"
 # where admin-level token is located
 admin_token='/root/keystonerc_admin'
-# random string for tenant network,subnet,router
-# this is so multiple networks created inside same tenant
+# random string for project network,subnet,router
+# this is so multiple networks created inside same project
 # have a unique name
-randstring=`date | md5sum | cut -c1-5`
+randstring='date | md5sum | cut -c1-5'
 # change this to https if you're using SSL endpoints
 endpoint_proto='https'
-# nameserver for tenants to use
+# nameserver for projects to use
 dns_nameserver=8.8.8.8
 
 get_id() {
-  echo `"$@" | awk '/id / {print $4}'`
+  #echo '"$@" | awk '/id / {print $4}''
+  echo '"$@" | grep " id" | awk '{print $4}''
 }
 
-create_tenant_user() {
+create_project_user() {
 
-tenant_id=$(get_id keystone tenant-get ${tenant_name})
-  if [[ -z $tenant_id ]]
+project_id=$(get_id openstack project show ${project_name})
+  if [[ -z $project_id ]]
   then
-	tenant_id=$(get_id keystone tenant-create --name=${tenant_name})
+	project_id=$(get_id openstack project create ${project_name})
   fi
 
-  user_id=$(get_id keystone user-create --name=$user_name --pass=$USER_PASSWORD --email=${user_name}${USER_DOMAIN} --tenant=$tenant_id)
-  member_id=$(get_id keystone role-get _member_)
-  echo keystone user-role-add --tenant-id $tenant_id --user-id $user_id --role-id $member_id
+  user_id=$(get_id openstack user create $user_name --password $USER_PASSWORD --email ${user_name}${USER_DOMAIN} --project $project_id)
+  member_id=$(get_id openstack role show _member_)
+  echo openstack role add --project $project_id --user $user_id $member_id
 
 cat > $token_location/keystonerc_${user_name} <<EOF
-export OS_TENANT_NAME=$tenant_name
+export OS_PROJECT_NAME=$project_name
 export OS_USERNAME=$user_name
 export OS_PASSWORD=$USER_PASSWORD
 export OS_AUTH_URL="${endpoint_proto}://${CONTROLLER_PUB_IP}:5000/v2.0/"
@@ -55,43 +56,42 @@ export PS1="[\u@\h \W(keystone_$user_name)]$ "
 EOF
 }
 
-create_tenant_network() {
-  tenant_network_name=default-network-$tenant_name-$randstring
-  tenant_router_name=default-router-$tenant_name-$randstring
-  tenant_subnet_name=default-subnet-$tenant_name-$randstring
-  tenant_subnet_net=$user_net_cidr
-  tenant_created_id=$(keystone tenant-get $tenant_name | grep id | awk '{print $4}')
+create_project_network() {
+  project_network_name=default-network-$project_name-$randstring
+  project_router_name=default-router-$project_name-$randstring
+  project_subnet_name=default-subnet-$project_name-$randstring
+  project_subnet_net=$user_net_cidr
+  project_created_id=$(openstack project show $project_name | grep " id" | awk '{print $4}')
 
 # source newly created keystonerc so we create network as that user
 source $token_location/keystonerc_$user_name
 
 # create new network, subnet and router
-neutron net-create $tenant_network_name
-neutron subnet-create $tenant_network_name $tenant_subnet_net/24 --dns-nameserver $dns_nameserver --name $tenant_subnet_name
-neutron router-create $tenant_router_name
+openstack network create $project_network_name
+openstack subnet create $project_network_name $project_subnet_net/24 --dns-nameserver $dns_nameserver $project_subnet_name
+openstack router create $project_router_name
 
 # obtain newly created router, network and subnet id
-tenant_router_id=$(neutron router-list | grep $tenant_router_name | awk '{print $2}')
-tenant_subnet_id=$(neutron subnet-list | grep $tenant_subnet_name | awk '{print $2}')
-tenant_network_id=$(neutron net-list | grep $tenant_network_name | awk '{print $2}')
+project_router_id=$(openstack router list | grep $project_router_name | awk '{print $2}')
+project_subnet_id=$(openstack subnet list | grep $project_subnet_name | awk '{print $2}')
+project_network_id=$(openstack network list | grep $project_network_name | awk '{print $2}')
 
 # associate router and add interface to the router
-neutron router-gateway-set $tenant_router_id $EXTERNAL_NET_ID
-neutron router-interface-add $tenant_router_id $tenant_subnet_id
+openstack router set --external-gateway $EXTERNAL_NET_ID $project_router_id 
+openstack router add subnet $project_router_id $project_subnet_id
 }
 
-create_tenant_securitygroup() {
-	neutron security-group-rule-create   \
+create_project_securitygroup() {
+	openstack security group rule create   \
 		--protocol icmp		     \
-                --direction ingress          \
-		--remote-ip-prefix 0.0.0.0/0 \
+                --ingress          \
+		--prefix 0.0.0.0/0 \
 		default
-	neutron security-group-rule-create   \
+	openstack security group rule create   \
 		--protocol tcp               \
-		--port-range-min 22          \
-		--port-range-max 22          \
-		--direction ingress          \
-		--remote-ip-prefix 0.0.0.0/0 \
+		--dst-port 22          \
+		--ingress          \
+		--prefix 0.0.0.0/0 \
 		default
 }
 
@@ -106,8 +106,8 @@ EndofMessage
 # source admin token again
 source $admin_token
 
-echo -en "Enter Tenant name (defaults to username): "
-read tenant_name
+echo -en "Enter project name (defaults to username): "
+read project_name
 
 echo -en "Enter User name: "
 read user_name
@@ -131,24 +131,24 @@ then
 	exit 1
 fi
 
-# call function to create tenant and user
-if [ ! -z $tenant_name ] && [ ! -z $user_name ];
+# call function to create project and user
+if [ ! -z $project_name ] && [ ! -z $user_name ];
 then
-        create_tenant_user $tenant_name $user_name $USER_PASSWORD >/dev/null 2>&1
+        create_project_user $project_name $user_name $USER_PASSWORD >/dev/null 2>&1
 else
-	echo "::ERROR:: either tenant or user is empty"
+	echo "::ERROR:: either project or user is empty"
 	exit 1
 fi
 
 # call function to create generic network
 if [ $create_network == "1" ];
 then
-        create_tenant_network >/dev/null 2>&1
-        create_tenant_securitygroup >/dev/null 2>&1
+        create_project_network >/dev/null 2>&1
+        create_project_securitygroup >/dev/null 2>&1
 fi
 
 # summarize what we did
-# source admin again to obtain tenant id
+# source admin again to obtain project id
 source $admin_token 
 
 cat <<EndofMessage
@@ -156,9 +156,9 @@ cat <<EndofMessage
 #    OpenStack Account Summary     #
 ====================================
 Username:     $user_name
-Tenant:       $tenant_name
-Tenant ID:    $(keystone tenant-get $tenant_name 2>/dev/null| grep id | awk '{print $4}')
-Network Name: $tenant_network_name
-Network ID:   $tenant_network_id
+project:       $project_name
+project ID:    $(keystone project-get $project_name 2>/dev/null| grep id | awk '{print $4}')
+Network Name: $project_network_name
+Network ID:   $project_network_id
 ====================================
 EndofMessage
