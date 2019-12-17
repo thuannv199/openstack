@@ -157,7 +157,7 @@ cat <<EndofMessage
 ====================================
 Username:     $user_name
 project:       $project_name
-project ID:    $(keystone project-get $project_name 2>/dev/null| grep id | awk '{print $4}')
+project ID:    $(openstack project show $project_name 2>/dev/null| grep id | awk '{print $4}')
 Network Name: $project_network_name
 Network ID:   $project_network_id
 ====================================
