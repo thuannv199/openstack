@@ -77,7 +77,7 @@ source $token_location/keystonerc_$user_name
 # create new network, subnet and router
 #openstack network create $project_network_name
 #openstack subnet create --network $project_network_name --subnet-range $project_subnet_net/24 --gateway 11.0.0.1 --dns-nameserver $dns_nameserver $project_subnet_name
-openstack router create $project_router_name
+openstack router create --project $project_created_id $project_router_name
 
 # obtain newly created router, network and subnet id
 project_router_id=$(openstack router list | grep $project_router_name | awk '{print $2}')
