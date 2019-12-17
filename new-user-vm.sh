@@ -19,7 +19,7 @@ user_net_cidr='11.0.0.0'
 # where tokens are stored
 token_location="/root/keystonerc.d"
 # where admin-level token is located
-admin_token='~/admin-openrc'
+admin_token="~/admin-openrc"
 # random string for project network,subnet,router
 # this is so multiple networks created inside same project
 # have a unique name
@@ -149,7 +149,7 @@ fi
 
 # summarize what we did
 # source admin again to obtain project id
-source $admin_token 
+source $admin_token
 
 cat <<EndofMessage
 ####################################
