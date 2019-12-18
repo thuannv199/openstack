@@ -4,15 +4,15 @@
 # sets the default GW so users can immediately start using things.
 # also sets up security group rules for SSH/ICMP
 # usage :: run from openstack controller
-# usage :: source overcloudrc or keystonerc
-# usage :: ./new-user-vm.sh
+# usage :: source admin-openrc
+# usage :: ./create-user.sh
 
 # this should be your Neutron external network
 EXTERNAL_NET_ID="6f13cfe8-9929-47ef-b140-9955edb18fd2"
 # this should be internal self server network
-INTERNAL_NET_ID="30061cb1-6d10-4b79-ac9b-5047330354c4"
+INTERNAL_NET_NAME="selfservice"
 # selfservice subnet
-INTERNAL_SUBNET_ID="8921c903-553a-48c7-8a6c-f77d547a3865"
+INTERNAL_SUBNET_NAME="selfservice"
 # ip address of your controller
 CONTROLLER_PUB_IP="10.0.0.10"
 # generic password for new users
@@ -20,6 +20,8 @@ USER_PASSWORD="stack"
 USER_DOMAIN="@atvn.com.vn"
 # users generic internal network
 user_net_cidr='11.0.0.0'
+#gateway
+user_net_gw='11.0.0.1'
 # where tokens are stored
 token_location="/root/keystonerc.d"
 # where admin-level token is located
@@ -32,6 +34,15 @@ randstring=`date | md5sum | cut -c1-5`
 endpoint_proto='http'
 # nameserver for projects to use
 dns_nameserver=8.8.8.8
+# default quotas
+df_cores=4 # vCPU
+df_instances=2 # number of instances
+df_ram=16384 # MB of RAM
+df_floating_ips=2 # number of floating ip
+df_networks=2 # number of network
+df_subnets=2 # number of subnet 
+df_ports=10 # number of port
+df_routers=2 # number of router
 
 get_id() {
   #echo '"$@" | awk '/id / {print $4}''
@@ -39,16 +50,19 @@ get_id() {
 }
 
 create_project_user() {
-
 project_id=$(get_id openstack project show ${project_name})
   if [[ -z $project_id ]]
   then
-	project_id=$(get_id openstack project create --domain default ${project_name})
+        project_id=$(get_id openstack project create --domain default --enable ${project_name})
   fi
 
-  user_id=$(get_id openstack user create --project $project_id --project-domain default --password $USER_PASSWORD --email ${user_name}${USER_DOMAIN} $user_name)
-  member_id=$(get_id openstack role show _member_)
-  echo openstack role add --project $project_id --user $user_id $member_id
+  user_id=$(get_id openstack user create --project ${project_name} --project-domain default --password $USER_PASSWORD --email ${user_name}${USER_DOMAIN} $user_name)
+  #member_id=$(get_id openstack role show _member_)
+  openstack role add --project $project_id --user $user_id user
+  openstack quota set --cores $df_cores --instances $df_instances \
+					--ram $df_ram --floating-ips $df_floating_ips \
+					--networks $df_networks --subnets $df_subnets \
+					--ports $df_ports --routers $df_ports $project_id
 
 cat > $token_location/keystonerc_${user_name} <<EOF
 export OS_PROJECT_DOMAIN_NAME=Default
@@ -65,19 +79,20 @@ EOF
 }
 
 create_project_network() {
-  project_network_name=$INTERNAL_NET_ID
+  project_network_name=$INTERNAL_NET_NAME
   project_router_name=default-router-$project_name-$randstring
-  project_subnet_name=$INTERNAL_SUBNET_ID
+  project_subnet_name=$INTERNAL_SUBNET_NAME
   project_subnet_net=$user_net_cidr
+  project_gateway_ip=$user_net_gw
   project_created_id=$(openstack project show $project_name | grep " id" | awk '{print $4}')
 
 # source newly created keystonerc so we create network as that user
 source $token_location/keystonerc_$user_name
 
 # create new network, subnet and router
-#openstack network create $project_network_name
-#openstack subnet create --network $project_network_name --subnet-range $project_subnet_net/24 --gateway 11.0.0.1 --dns-nameserver $dns_nameserver $project_subnet_name
-openstack router create --project $project_created_id $project_router_name
+openstack network create $project_network_name
+openstack subnet create --network $project_network_name --subnet-range $project_subnet_net/24 --gateway $project_gateway_ip --dns-nameserver $dns_nameserver $project_subnet_name
+openstack router create  $project_router_name
 
 # obtain newly created router, network and subnet id
 project_router_id=$(openstack router list | grep $project_router_name | awk '{print $2}')
@@ -89,24 +104,24 @@ openstack router set $project_router_id --external-gateway $EXTERNAL_NET_ID
 openstack router add subnet $project_router_id $project_subnet_id
 }
 
-create_project_securitygroup() {
-	openstack security group rule create   \
-		--protocol icmp		     \
+create_project_securitygroup() {      
+		openstack security group rule create   \
+                --protocol icmp              \
                 --ingress          \
-		--prefix 0.0.0.0/0 \
-		default
-	openstack security group rule create   \
-		--protocol tcp               \
-		--dst-port 22          \
-		--ingress          \
-		--prefix 0.0.0.0/0 \
-		default
+                --prefix 0.0.0.0/0 \
+                default
+        openstack security group rule create   \
+                --protocol tcp               \
+                --dst-port 22          \
+                --ingress          \
+                --prefix 0.0.0.0/0 \
+                default
 }
 
 # parse input and execute functions
 cat <<EndofMessage
 #####################################################
-#           OpenStack Account Creator 6000          #
+#           OpenStack Account Creator 2019          #
 #                                                   #
 #####################################################
 EndofMessage
@@ -125,40 +140,47 @@ read generic_net
 
 # sanity check network input
 case $generic_net in
-	y|Y) create_network="1"
-		;;
-	n|N) create_network="0"
-		;;
-	*)   echo "::Error:: Answer Y/N for network creation"
-	     exit 1
+        y|Y) create_network="1"
+                ;;
+        n|N) create_network="0"
+                ;;
+        *)   echo "::Error:: Answer Y/N for network creation"
+             exit 1
 esac
 
 if [ -z $generic_net ];
 then
-	echo "::ERROR:: Network selection empty, choose Y/N"
-	exit 1
+        echo "::ERROR:: Network selection empty, choose Y/N"
+        exit 1
 fi
 
 # call function to create project and user
 if [ ! -z $project_name ] && [ ! -z $user_name ];
 then
-        create_project_user $project_name $user_name $USER_PASSWORD >/dev/null 2>&1
+        echo "Creating user..."
+		sleep 2
+		create_project_user $project_name $user_name $USER_PASSWORD >/dev/null 2>&1
 else
-	echo "::ERROR:: either project or user is empty"
-	exit 1
+        echo "::ERROR:: either project or user is empty"
+        exit 1
 fi
 
 # call function to create generic network
 if [ $create_network == "1" ];
 then
-        create_project_network >/dev/null 2>&1
+		echo "Creating network..."
+		sleep 2
+		create_project_network >/dev/null 2>&1
+		echo "Setting security group..."
+		sleep 2
         create_project_securitygroup >/dev/null 2>&1
 fi
 
 # summarize what we did
 # source admin again to obtain project id
 source $admin_token
-
+echo "Finalizing configuration..."
+sleep 5
 cat <<EndofMessage
 ####################################
 #    OpenStack Account Summary     #
@@ -168,5 +190,8 @@ project:       $project_name
 project ID:    $(openstack project show $project_name 2>/dev/null | grep " id" | awk '{print $4}')
 Network Name: $project_network_name
 Network ID:   $project_network_id
+Loggin url: http://http://172.33.47.17/horizon/auth/login/
+Default password: "stack"
+Help: thuannv@atvn.com.vn / 082 751 91 96
 ====================================
 EndofMessage
