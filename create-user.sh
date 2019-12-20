@@ -10,18 +10,18 @@
 # this should be your Neutron external network
 EXTERNAL_NET_ID="6f13cfe8-9929-47ef-b140-9955edb18fd2"
 # this should be internal self server network
-INTERNAL_NET_NAME="selfservice"
+INTERNAL_NET_NAME="internal"
 # selfservice subnet
-INTERNAL_SUBNET_NAME="selfservice"
+INTERNAL_SUBNET_NAME="internal"
 # ip address of your controller
 CONTROLLER_PUB_IP="10.0.0.10"
 # generic password for new users
 USER_PASSWORD="stack"
 USER_DOMAIN="@atvn.com.vn"
 # users generic internal network
-user_net_cidr='11.0.0.0'
+user_net_cidr='11.0'
 #gateway
-user_net_gw='11.0.0.1'
+user_net_gw='11.0'
 # where tokens are stored
 token_location="/root/keystonerc.d"
 # where admin-level token is located
@@ -79,10 +79,9 @@ EOF
 }
 
 create_project_network() {
-  project_network_name=$INTERNAL_NET_NAME
+  project_network_name=$project_name-$INTERNAL_NET_NAME
   project_router_name=default-router-$project_name-$randstring
-  project_subnet_name=$INTERNAL_SUBNET_NAME
-  project_subnet_net=$user_net_cidr
+  project_subnet_name=$project_name-$INTERNAL_SUBNET_NAME
   project_gateway_ip=$user_net_gw
   project_created_id=$(openstack project show $project_name | grep " id" | awk '{print $4}')
 
@@ -90,9 +89,12 @@ create_project_network() {
 source $token_location/keystonerc_$user_name
 
 # create new network, subnet and router
-openstack network create $project_network_name
-openstack subnet create --network $project_network_name --subnet-range $project_subnet_net/24 --gateway $project_gateway_ip --dns-nameserver $dns_nameserver $project_subnet_name
 openstack router create  $project_router_name
+openstack router set $project_router_name --external-gateway $EXTERNAL_NET_ID
+router_external_ip=$(openstack router show $project_router_name | grep external_gateway_info | awk '{print $12}' | cut -c2-14) #get gateway ip address
+project_subnet_net=$user_net_cidr.$(echo $router_external_ip | cut -c11-14).0 # generate a new cidr 
+openstack network create $project_network_name
+openstack subnet create --network $project_network_name --subnet-range $project_subnet_net/24 --dns-nameserver $dns_nameserver $project_subnet_name
 
 # obtain newly created router, network and subnet id
 project_router_id=$(openstack router list | grep $project_router_name | awk '{print $2}')
@@ -100,8 +102,9 @@ project_subnet_id=$(openstack subnet list | grep $project_subnet_name | awk '{pr
 project_network_id=$(openstack network list | grep $project_network_name | awk '{print $2}')
 
 # associate router and add interface to the router
-openstack router set $project_router_id --external-gateway $EXTERNAL_NET_ID
 openstack router add subnet $project_router_id $project_subnet_id
+ip route add $project_subnet_id/24 via $router_external_ip
+
 }
 
 create_project_securitygroup() {      
